@@ -1,7 +1,6 @@
-﻿using System.Windows;
+using System.Diagnostics;
+using System.Windows;
 using System.Windows.Threading;
-using v2rayN.Handler;
-using v2rayN.Model;
 
 namespace v2rayN
 {
@@ -11,11 +10,9 @@ namespace v2rayN
     public partial class App : Application
     {
         public static EventWaitHandle ProgramStarted;
-        private static Config _config;
 
         public App()
         {
-            // Locator.CurrentMutable.RegisterViewsForViewModels(Assembly.GetCallingAssembly());
             this.DispatcherUnhandledException += App_DispatcherUnhandledException;
             AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
             TaskScheduler.UnobservedTaskException += TaskScheduler_UnobservedTaskException;
@@ -27,42 +24,26 @@ namespace v2rayN
         /// <param name="e"></param>
         protected override void OnStartup(StartupEventArgs e)
         {
-            var exePathKey = Utile.GetMD5(Utile.GetExePath());
+            var exePathKey = Utils.GetMd5(Utils.GetExePath());
 
-            var rebootas = (e.Args ?? new string[] { }).Any(t => t == Global.RebootAs);
+            var rebootas = (e.Args ?? Array.Empty<string>()).Any(t => t == Global.RebootAs);
             ProgramStarted = new EventWaitHandle(false, EventResetMode.AutoReset, exePathKey, out bool bCreatedNew);
             if (!rebootas && !bCreatedNew)
             {
                 ProgramStarted.Set();
-                Current.Shutdown();
                 Environment.Exit(0);
                 return;
             }
 
-            Logging.Setup();
-            Init();
-            Logging.LoggingEnabled(_config.guiItem.enableLog);
-            Logging.SaveLog($"v2rayN start up | {Utile.GetVersion()} | {Utile.GetExePath()}");
-            Logging.ClearLogs();
-
-            Thread.CurrentThread.CurrentUICulture = new(_config.uiItem.currentLanguage);
-
-            base.OnStartup(e);
-        }
-
-        private void Init()
-        {
-            if (ConfigHandler.LoadConfig(ref _config) != 0)
+            if (!AppHandler.Instance.InitApp())
             {
                 UI.Show($"Loading GUI configuration file is abnormal,please restart the application{Environment.NewLine}加载GUI配置文件异常,请重启应用");
-                Application.Current.Shutdown();
                 Environment.Exit(0);
                 return;
             }
-            //if (RuntimeInformation.ProcessArchitecture != Architecture.X86 && RuntimeInformation.ProcessArchitecture != Architecture.X64)
-            //{
-            //    _config.guiItem.enableStatistics = false;
-            //}
+
+            AppHandler.Instance.InitComponents();
+            base.OnStartup(e);
         }
 
         private void App_DispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
@@ -82,6 +63,13 @@ namespace v2rayN
         private void TaskScheduler_UnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs e)
         {
             Logging.SaveLog("TaskScheduler_UnobservedTaskException", e.Exception);
+        }
+
+        protected override void OnExit(ExitEventArgs e)
+        {
+            Logging.SaveLog("OnExit");
+            base.OnExit(e);
+            Process.GetCurrentProcess().Kill();
         }
     }
 }

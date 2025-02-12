@@ -1,15 +1,15 @@
-﻿using QRCoder;
-using QRCoder.Xaml;
+﻿using System.Collections;
+using System.Drawing;
+using System.Windows;
+using System.Windows.Interop;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 
 namespace v2rayN
 {
-    /// <summary>
-    /// 含有QR码的描述类和包装编码和渲染
-    /// </summary>
     public class QRCodeHelper
     {
-        public static DrawingImage? GetQRCode(string? strContent)
+        public static ImageSource? GetQRCode(string? strContent)
         {
             if (strContent is null)
             {
@@ -17,16 +17,56 @@ namespace v2rayN
             }
             try
             {
-                QRCodeGenerator qrGenerator = new();
-                QRCodeData qrCodeData = qrGenerator.CreateQrCode(strContent, QRCodeGenerator.ECCLevel.H);
-                XamlQRCode qrCode = new(qrCodeData);
-                DrawingImage qrCodeAsXaml = qrCode.GetGraphic(40);
-                return qrCodeAsXaml;
+                var qrCodeImage = ServiceLib.Common.QRCodeHelper.GenQRCode(strContent);
+                return qrCodeImage is null ? null : ByteToImage(qrCodeImage);
             }
             catch
             {
                 return null;
             }
+        }
+
+        public static byte[]? CaptureScreen(Window window)
+        {
+            try
+            {
+                GetDpi(window, out var dpiX, out var dpiY);
+
+                var left = (int)(SystemParameters.WorkArea.Left);
+                var top = (int)(SystemParameters.WorkArea.Top);
+                var width = (int)(SystemParameters.WorkArea.Width / dpiX);
+                var height = (int)(SystemParameters.WorkArea.Height / dpiY);
+
+                using var fullImage = new Bitmap(width, height);
+                using var g = Graphics.FromImage(fullImage);
+
+                g.CopyFromScreen(left, top, 0, 0, fullImage.Size, CopyPixelOperation.SourceCopy);
+                //fullImage.Save("test1.png", ImageFormat.Png);
+                return ImageToByte(fullImage);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static void GetDpi(Window window, out float x, out float y)
+        {
+            var hWnd = new WindowInteropHelper(window).EnsureHandle();
+            var g = Graphics.FromHwnd(hWnd);
+
+            x = 96 / g.DpiX;
+            y = 96 / g.DpiY;
+        }
+
+        private static ImageSource? ByteToImage(IEnumerable imageData)
+        {
+            return new ImageSourceConverter().ConvertFrom(imageData) as BitmapSource;
+        }
+
+        private static byte[]? ImageToByte(Image img)
+        {
+            return new ImageConverter().ConvertTo(img, typeof(byte[])) as byte[];
         }
     }
 }

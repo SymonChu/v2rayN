@@ -1,11 +1,11 @@
-﻿using Microsoft.Win32;
 using System.Windows;
+using Microsoft.Win32;
 
 namespace v2rayN
 {
     internal class UI
     {
-        private static readonly string caption = "v2rayN";
+        private static readonly string caption = Global.AppName;
 
         public static void Show(string msg)
         {
@@ -31,6 +31,26 @@ namespace v2rayN
             {
                 return false;
             }
+            fileName = fileDialog.FileName;
+
+            return true;
+        }
+
+        public static bool? SaveFileDialog(out string fileName, string filter)
+        {
+            fileName = string.Empty;
+
+            SaveFileDialog fileDialog = new()
+            {
+                Filter = filter,
+                FilterIndex = 2,
+                RestoreDirectory = true
+            };
+            if (fileDialog.ShowDialog() != true)
+            {
+                return false;
+            }
+
             fileName = fileDialog.FileName;
 
             return true;
